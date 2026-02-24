@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STARSHARD RUSH</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: 'Press Start 2P', monospace; }
+  canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  #ui {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    pointer-events: none; z-index: 10;
+  }
+  #startBtn {
+    position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%);
+    font-family: 'Press Start 2P', monospace; font-size: 11px; color: #fff;
+    background: none; border: 2px solid #fff; padding: 10px 28px; cursor: pointer;
+    pointer-events: all; z-index: 20; animation: blink 1.2s infinite;
+    text-transform: uppercase; letter-spacing: 1px;
+  }
+  #startBtn:hover { background: rgba(255,255,255,0.15); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  #skipBtn {
+    position: absolute; bottom: 20px; right: 20px;
+    font-family: 'Press Start 2P', monospace; font-size: 8px; color: #888;
+    background: none; border: 1px solid #555; padding: 6px 14px; cursor: pointer;
+    pointer-events: all; z-index: 20; display: none;
+  }
+  #skipBtn:hover { color: #fff; border-color: #fff; }
+  #textBox {
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    width: 85%; max-width: 620px; background: rgba(0,0,20,0.92);
+    border: 2px solid #6af; padding: 16px 20px; display: none; z-index: 15;
+    pointer-events: all; cursor: pointer; min-height: 70px;
+  }
+  #textBox p {
+    font-family: 'Press Start 2P', monospace; font-size: 26px; color: #e0e8ff;
+    line-height: 2.2; letter-spacing: 0.5px;
+  }
+  #textBox .arrow {
+    position: absolute; bottom: 6px; right: 10px; font-size: 8px; color: #6af;
+    animation: blink 0.8s infinite;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="startBtn">▶ START</button>
+<button id="skipBtn">SKIP ▸</button>
+<div id="textBox"><p id="textContent"></p><span class="arrow">▼</span></div>
+
+<script>
+const C = document.getElementById('c');
+const X = C.getContext('2d');
+const W = 480, H = 320;
+C.width = W; C.height = H;
+
+function resize() {
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  C.style.width = (W * s) + 'px';
+  C.style.height = (H * s) + 'px';
+}
+resize();
+window.addEventListener('resize', resize);
+
+let frame = 0, scene = 'title', sceneTime = 0;
+let textIdx = 0, charIdx = 0, typing = false, textDone = false;
+
+const scenes = [
+  { bg: 'space', text: '오래전, 이 세계에는 하나의 빛이 있었다...', actor: 'none' },
+  { bg: 'space', text: '그 빛은 산산이 부서져\n수많은 조각이 되어 세상에 흩어졌다.', actor: 'shard' },
+  { bg: 'space', text: '사람들은 그것을 \'스타샤드\'라 불렀다.', actor: 'shard_glow' },
+  { bg: 'myth', text: '잠들어 있던 돌이 깨어나면,\n다른 세계의 모험이 도전자를 부른다.', actor: 'stones' },
+  { bg: 'myth', text: '스타샤드의 힘은 이곳에서 시작되니,\n신비로운 돌의 정체를 알고자 한다면...', actor: 'glow' },
+  { bg: 'pixel', text: '픽셀의 세계에 귀를 기울여라.', actor: 'world' },
+  { bg: 'village', text: '그리고 어느 날, 작은 마을에\n한 소녀가 눈을 떴다.', actor: 'plli_sleep' },
+  { bg: 'village', text: '그녀의 이름은 플리(PLLI).', actor: 'plli_stand' },
+  { bg: 'path', text: '스타샤드의 부름을 들은 플리는\n픽셀 월드를 향해 첫 발을 내딛는다.', actor: 'plli_walk' },
+  { bg: 'path', text: '모험이 시작된다...!', actor: 'plli_run' },
+];
+
+// Colors
+const COL = {
+  sky: '#0a0a2e', star: '#fff', shard: '#7df', shardGlow: '#aef',
+  hair: '#f7a', hairDark: '#d58', skin: '#fde0b8', eye: '#2ae',
+  dress: '#68f', dressDark: '#44b', boot: '#543',
+  grass: '#2a6', grassDark: '#185', dirt: '#8a5', stone: '#667',
+  roof: '#c55', wall: '#dca', wood: '#864',
+};
+
+// Stars
+const stars = Array.from({length: 80}, () => ({
+  x: Math.random() * W, y: Math.random() * H * 0.7,
+  s: Math.random() * 2 + 0.5, sp: Math.random() * 0.02 + 0.005, ph: Math.random() * Math.PI * 2
+}));
+
+// Particles
+let particles = [];
+function spawnParticle(x, y, col) {
+  particles.push({ x, y, vx: (Math.random()-0.5)*1.5, vy: -Math.random()*2-0.5, life: 60+Math.random()*40, col, age:0 });
+}
+
+function drawPixelRect(x, y, w, h, col) { X.fillStyle = col; X.fillRect(Math.floor(x), Math.floor(y), w, h); }
+
+// Draw PLLI character (pixel art)
+function drawPlli(cx, cy, anim, facing) {
+  const f = facing || 1;
+  const s = 3; // pixel size
+  const bobY = anim === 'walk' || anim === 'run' ? Math.sin(frame * 0.15) * 2 : 0;
+  const armSwing = anim === 'walk' ? Math.sin(frame * 0.15) * 3 : anim === 'run' ? Math.sin(frame * 0.2) * 5 : 0;
+  const legSwing = anim === 'walk' ? Math.sin(frame * 0.15) * 2 : anim === 'run' ? Math.sin(frame * 0.2) * 4 : 0;
+  const y = cy + bobY;
+
+  // Hair (twintails)
+  drawPixelRect(cx - 5*s, y - 10*s, 10*s, 4*s, COL.hair);
+  drawPixelRect(cx - 6*s, y - 9*s, 2*s, 7*s, COL.hair); // left tail
+  drawPixelRect(cx + 4*s, y - 9*s, 2*s, 7*s, COL.hair); // right tail
+  drawPixelRect(cx - 6*s, y - 3*s, 2*s, 3*s, COL.hairDark);
+  drawPixelRect(cx + 4*s, y - 3*s, 2*s, 3*s, COL.hairDark);
+  // Bangs
+  drawPixelRect(cx - 4*s, y - 9*s, 8*s, 2*s, COL.hairDark);
+
+  // Face
+  drawPixelRect(cx - 3*s, y - 7*s, 6*s, 5*s, COL.skin);
+  // Eyes
+  drawPixelRect(cx - 2*s, y - 5*s, s, s, COL.eye);
+  drawPixelRect(cx + 1*s, y - 5*s, s, s, COL.eye);
+  // Eye shine
+  drawPixelRect(cx - 2*s, y - 5*s, 1, 1, '#fff');
+  drawPixelRect(cx + 1*s, y - 5*s, 1, 1, '#fff');
+  // Mouth
+  if (anim === 'run') {
+    drawPixelRect(cx - s*0.5, y - 3*s, s, s, '#e88');
+  } else {
+    drawPixelRect(cx - 0.5*s, y - 3.5*s, s, 1, '#d88');
+  }
+
+  // Dress
+  drawPixelRect(cx - 3*s, y - 2*s, 6*s, 5*s, COL.dress);
+  drawPixelRect(cx - 4*s, y - 1*s, 8*s, 2*s, COL.dress);
+  drawPixelRect(cx - 2*s, y - 2*s, 4*s, 1*s, COL.dressDark);
+  // Star emblem on dress
+  drawPixelRect(cx - 0.5*s, y + 0*s, s, s, '#ff0');
+
+  // Arms
+  X.save();
+  drawPixelRect(cx - 5*s, y - 1*s + armSwing, 2*s, 4*s, COL.skin);
+  drawPixelRect(cx + 3*s, y - 1*s - armSwing, 2*s, 4*s, COL.skin);
+  X.restore();
+
+  // Legs
+  drawPixelRect(cx - 2*s, y + 3*s + legSwing, 2*s, 3*s, COL.skin);
+  drawPixelRect(cx + 0*s, y + 3*s - legSwing, 2*s, 3*s, COL.skin);
+  // Boots
+  drawPixelRect(cx - 2*s, y + 5*s + legSwing, 2*s, 2*s, COL.boot);
+  drawPixelRect(cx + 0*s, y + 5*s - legSwing, 2*s, 2*s, COL.boot);
+}
+
+// Draw starshard crystal
+function drawShard(cx, cy, glow) {
+  const t = frame * 0.03;
+  const floatY = Math.sin(t) * 4;
+  const y = cy + floatY;
+
+  if (glow) {
+    const r = 20 + Math.sin(t * 2) * 8;
+    const g = X.createRadialGradient(cx, y, 2, cx, y, r);
+    g.addColorStop(0, 'rgba(120,220,255,0.5)');
+    g.addColorStop(1, 'rgba(120,220,255,0)');
+    X.fillStyle = g;
+    X.fillRect(cx - r, y - r, r * 2, r * 2);
+  }
+
+  // Crystal shape
+  X.fillStyle = COL.shard;
+  X.beginPath();
+  X.moveTo(cx, y - 12);
+  X.lineTo(cx + 8, y);
+  X.lineTo(cx + 4, y + 10);
+  X.lineTo(cx - 4, y + 10);
+  X.lineTo(cx - 8, y);
+  X.closePath();
+  X.fill();
+
+  X.fillStyle = COL.shardGlow;
+  X.beginPath();
+  X.moveTo(cx - 2, y - 8);
+  X.lineTo(cx + 3, y - 2);
+  X.lineTo(cx, y + 4);
+  X.lineTo(cx - 4, y);
+  X.closePath();
+  X.fill();
+
+  // Sparkle
+  if (frame % 20 < 10) {
+    drawPixelRect(cx + 6, y - 8, 2, 2, '#fff');
+  }
+  if (frame % 30 < 8) {
+    drawPixelRect(cx - 8, y + 2, 2, 2, '#adf');
+  }
+}
+
+// Backgrounds
+function drawBgSpace() {
+  X.fillStyle = '#050515';
+  X.fillRect(0, 0, W, H);
+  stars.forEach(s => {
+    const a = 0.4 + 0.6 * Math.sin(frame * s.sp + s.ph);
+    X.globalAlpha = a;
+    X.fillStyle = s.s > 1.5 ? '#adf' : '#fff';
+    X.fillRect(s.x, s.y, Math.ceil(s.s), Math.ceil(s.s));
+  });
+  X.globalAlpha = 1;
+}
+
+function drawBgMyth() {
+  X.fillStyle = '#0a0825';
+  X.fillRect(0, 0, W, H);
+  // Distant mountains
+  X.fillStyle = '#151040';
+  for (let i = 0; i < 6; i++) {
+    const mx = i * 90 - 20, my = 200, mw = 140, mh = 120;
+    X.beginPath();
+    X.moveTo(mx, my);
+    X.lineTo(mx + mw/2, my - mh + Math.sin(i)*20);
+    X.lineTo(mx + mw, my);
+    X.fill();
+  }
+  stars.slice(0, 30).forEach(s => {
+    X.globalAlpha = 0.3 + 0.4 * Math.sin(frame * s.sp + s.ph);
+    X.fillStyle = '#ccf';
+    X.fillRect(s.x, s.y * 0.6, 1, 1);
+  });
+  X.globalAlpha = 1;
+  // Ground
+  X.fillStyle = '#1a1545';
+  X.fillRect(0, 220, W, 100);
+}
+
+function drawBgPixel() {
+  // Colorful pixel world reveal
+  const t = Math.min(sceneTime / 60, 1);
+  X.fillStyle = '#0a0825';
+  X.fillRect(0, 0, W, H);
+  // Grid of colored pixels appearing
+  const ps = 16;
+  for (let gx = 0; gx < W; gx += ps) {
+    for (let gy = 0; gy < H; gy += ps) {
+      const d = Math.sqrt((gx - W/2)**2 + (gy - H/2)**2) / 300;
+      if (t > d) {
+        const hue = (gx + gy + frame) % 360;
+        X.fillStyle = `hsl(${hue}, 60%, ${15 + Math.sin(frame*0.02+gx+gy)*5}%)`;
+        X.fillRect(gx, gy, ps - 1, ps - 1);
+      }
+    }
+  }
+}
+
+function drawBgVillage() {
+  // Sky
+  const grd = X.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, '#1a1040');
+  grd.addColorStop(0.5, '#2a2060');
+  grd.addColorStop(1, '#1a3a20');
+  X.fillStyle = grd;
+  X.fillRect(0, 0, W, H);
+
+  stars.slice(0, 20).forEach(s => {
+    X.globalAlpha = 0.5;
+    X.fillStyle = '#fff';
+    X.fillRect(s.x, s.y * 0.5, 1, 1);
+  });
+  X.globalAlpha = 1;
+
+  // Houses
+  for (let i = 0; i < 3; i++) {
+    const hx = 50 + i * 150, hy = 180;
+    drawPixelRect(hx, hy, 60, 50, COL.wall);
+    // Roof
+    X.fillStyle = COL.roof;
+    X.beginPath();
+    X.moveTo(hx - 5, hy);
+    X.lineTo(hx + 30, hy - 30);
+    X.lineTo(hx + 65, hy);
+    X.fill();
+    // Door
+    drawPixelRect(hx + 22, hy + 25, 16, 25, COL.wood);
+    // Window glow
+    const wGlow = 0.5 + 0.3 * Math.sin(frame * 0.03 + i);
+    X.fillStyle = `rgba(255, 220, 100, ${wGlow})`;
+    X.fillRect(hx + 8, hy + 10, 12, 10);
+    X.fillRect(hx + 40, hy + 10, 12, 10);
+  }
+
+  // Ground
+  drawPixelRect(0, 230, W, 90, COL.grassDark);
+  drawPixelRect(0, 235, W, 85, COL.grass);
+  // Path
+  drawPixelRect(140, 235, 60, 85, COL.dirt);
+}
+
+function drawBgPath() {
+  const grd = X.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, '#1a1050');
+  grd.addColorStop(0.4, '#2a2a60');
+  grd.addColorStop(1, '#1a4a25');
+  X.fillStyle = grd;
+  X.fillRect(0, 0, W, H);
+
+  stars.slice(0, 15).forEach(s => {
+    X.globalAlpha = 0.4;
+    X.fillStyle = '#aaf';
+    X.fillRect(s.x, s.y * 0.4, 1, 1);
+  });
+  X.globalAlpha = 1;
+
+  // Hills
+  X.fillStyle = '#152a15';
+  for (let i = 0; i < W; i++) {
+    const h = 50 + Math.sin(i * 0.015) * 30 + Math.sin(i * 0.007) * 20;
+    X.fillRect(i, H - 100 - h, 1, h + 100);
+  }
+
+  // Ground & path
+  drawPixelRect(0, 240, W, 80, COL.grass);
+  // Winding path
+  for (let i = 0; i < W; i += 2) {
+    const px = Math.sin(i * 0.01 + 1) * 30;
+    drawPixelRect(i, 250 + px, 3, 30, COL.dirt);
+  }
+
+  // Distant portal/light
+  const portalGlow = 0.3 + 0.2 * Math.sin(frame * 0.04);
+  const pg = X.createRadialGradient(420, 170, 5, 420, 170, 50);
+  pg.addColorStop(0, `rgba(120,200,255,${portalGlow})`);
+  pg.addColorStop(1, 'rgba(120,200,255,0)');
+  X.fillStyle = pg;
+  X.fillRect(370, 120, 100, 100);
+  drawPixelRect(415, 160, 10, 20, '#aef');
+}
+
+function drawBackground(name) {
+  if (name === 'space') drawBgSpace();
+  else if (name === 'myth') drawBgMyth();
+  else if (name === 'pixel') drawBgPixel();
+  else if (name === 'village') drawBgVillage();
+  else if (name === 'path') drawBgPath();
+}
+
+function drawActors(name) {
+  if (name === 'shard') {
+    drawShard(W/2, H/2 - 20, false);
+  } else if (name === 'shard_glow') {
+    drawShard(W/2, H/2 - 20, true);
+    if (frame % 5 === 0) spawnParticle(W/2 + (Math.random()-0.5)*30, H/2 - 10, '#aef');
+  } else if (name === 'stones') {
+    for (let i = 0; i < 5; i++) {
+      const sx = 100 + i * 80, sy = 200;
+      const glow = sceneTime > 30 + i * 15;
+      drawShard(sx, sy, glow);
+    }
+  } else if (name === 'glow') {
+    // Central glow with floating shards
+    const r = 40 + Math.sin(frame * 0.02) * 10;
+    const g = X.createRadialGradient(W/2, 180, 5, W/2, 180, r);
+    g.addColorStop(0, 'rgba(150,220,255,0.6)');
+    g.addColorStop(0.5, 'rgba(100,150,255,0.2)');
+    g.addColorStop(1, 'rgba(100,150,255,0)');
+    X.fillStyle = g;
+    X.fillRect(W/2 - r, 180 - r, r*2, r*2);
+    for (let i = 0; i < 3; i++) {
+      const a = frame * 0.02 + i * 2.1;
+      drawShard(W/2 + Math.cos(a) * 50, 180 + Math.sin(a) * 30, true);
+    }
+  } else if (name === 'world') {
+    // Pixel world text/glow center
+    const pulse = 0.6 + 0.4 * Math.sin(frame * 0.05);
+    const g = X.createRadialGradient(W/2, H/2, 10, W/2, H/2, 120);
+    g.addColorStop(0, `rgba(180,220,255,${pulse * 0.4})`);
+    g.addColorStop(1, 'rgba(100,150,255,0)');
+    X.fillStyle = g;
+    X.fillRect(W/2 - 120, H/2 - 120, 240, 240);
+
+    X.font = '16px "Press Start 2P"';
+    X.textAlign = 'center';
+    X.fillStyle = `rgba(200,230,255,${pulse})`;
+    X.fillText('PIXEL WORLD', W/2, H/2 - 10);
+    X.font = '8px "Press Start 2P"';
+    X.fillStyle = `rgba(150,180,255,${pulse * 0.7})`;
+    X.fillText('★ ★ ★', W/2, H/2 + 15);
+  } else if (name === 'plli_sleep') {
+    // Sleeping PLLI
+    drawPlli(W/2, 210, 'idle');
+    // Zzz
+    const za = 0.4 + 0.4 * Math.sin(frame * 0.05);
+    X.font = '10px "Press Start 2P"';
+    X.fillStyle = `rgba(200,200,255,${za})`;
+    X.fillText('z Z z', W/2 + 30, 180 - Math.sin(frame * 0.03) * 5);
+  } else if (name === 'plli_stand') {
+    drawPlli(W/2, 210, 'idle');
+    // Name tag
+    const ta = Math.min(sceneTime / 30, 1);
+    X.globalAlpha = ta;
+    X.font = '12px "Press Start 2P"';
+    X.textAlign = 'center';
+    X.fillStyle = '#f7a';
+    X.fillText('P L L I', W/2, 155);
+    X.font = '7px "Press Start 2P"';
+    X.fillStyle = '#aac';
+    X.fillText('— 스타샤드 모험가 —', W/2, 170);
+    X.globalAlpha = 1;
+    // Sparkles around
+    if (frame % 8 === 0) spawnParticle(W/2 + (Math.random()-0.5)*60, 200, '#f7a');
+  } else if (name === 'plli_walk') {
+    const px = 120 + Math.min(sceneTime * 1.2, 180);
+    drawPlli(px, 220, 'walk');
+    drawShard(px + 40, 180, true);
+  } else if (name === 'plli_run') {
+    const px = 80 + Math.min(sceneTime * 2, 300);
+    drawPlli(px, 220, 'run');
+    // Trail particles
+    if (frame % 3 === 0) spawnParticle(px - 10, 240, '#68f');
+  }
+}
+
+// Particles update & draw
+function updateParticles() {
+  particles = particles.filter(p => p.age < p.life);
+  particles.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.02;
+    p.age++;
+    const a = 1 - p.age / p.life;
+    X.globalAlpha = a;
+    X.fillStyle = p.col;
+    X.fillRect(p.x, p.y, 2, 2);
+  });
+  X.globalAlpha = 1;
+}
+
+// Title screen
+function drawTitle() {
+  drawBgSpace();
+
+  // Floating shards on title
+  for (let i = 0; i < 3; i++) {
+    const a = frame * 0.01 + i * 2;
+    drawShard(W/2 + Math.cos(a) * 100, H/2 - 40 + Math.sin(a) * 30, true);
+  }
+
+  // Title text
+  const pulse = 0.7 + 0.3 * Math.sin(frame * 0.04);
+  X.textAlign = 'center';
+
+  // Shadow
+  X.font = '24px "Press Start 2P"';
+  X.fillStyle = '#224';
+  X.fillText('PLLI', W/2 + 2, 102);
+  X.fillStyle = `rgba(247,170,200,${pulse})`;
+  X.fillText('STARSHARD RUSH', W/2, 100);
+
+  X.font = '9px "Press Start 2P"';
+  X.fillStyle = '#6af';
+  X.fillText('The Myth of the Starshard', W/2, 130);
+
+  X.font = '7px "Press Start 2P"';
+  X.fillStyle = '#668';
+  X.fillText('스타샤드의 전설', W/2, 148);
+
+  // Pixel PLLI on title
+  drawPlli(W/2, 220, 'idle');
+
+  X.font = '7px "Press Start 2P"';
+  const ba = 0.3 + 0.5 * Math.abs(Math.sin(frame * 0.03));
+  X.fillStyle = `rgba(150,170,200,${ba})`;
+  X.fillText('© 2026 PIXEL WORLD STUDIO', W/2, H - 20);
+}
+
+// Scene transition
+let transAlpha = 0, transDir = 0, transCallback = null;
+function fadeToScene(cb) {
+  transDir = 1;
+  transCallback = cb;
+}
+
+// Text typewriter
+const textBox = document.getElementById('textBox');
+const textContent = document.getElementById('textContent');
+
+function showText(txt) {
+  textBox.style.display = 'block';
+  textContent.textContent = '';
+  charIdx = 0;
+  typing = true;
+  textDone = false;
+  typeText(txt);
+}
+
+function typeText(txt) {
+  if (!typing) return;
+  if (charIdx <= txt.length) {
+    textContent.textContent = txt.substring(0, charIdx);
+    charIdx++;
+    setTimeout(() => typeText(txt), 40);
+  } else {
+    textDone = true;
+  }
+}
+
+function hideText() {
+  textBox.style.display = 'none';
+  typing = false;
+}
+
+// Scene management
+let currentSceneIdx = -1;
+function nextScene() {
+  currentSceneIdx++;
+  if (currentSceneIdx >= scenes.length) {
+    // End - show final screen
+    fadeToScene(() => {
+      scene = 'ending';
+      sceneTime = 0;
+      hideText();
+    });
+    return;
+  }
+  fadeToScene(() => {
+    scene = 'cutscene';
+    sceneTime = 0;
+    particles = [];
+    const s = scenes[currentSceneIdx];
+    showText(s.text);
+  });
+}
+
+// Click to advance text
+textBox.addEventListener('click', () => {
+  if (typing && !textDone) {
+    charIdx = scenes[currentSceneIdx].text.length + 1;
+    textDone = true;
+    textContent.textContent = scenes[currentSceneIdx].text;
+  } else if (textDone) {
+    nextScene();
+  }
+});
+
+// Start button
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('startBtn').style.display = 'none';
+  document.getElementById('skipBtn').style.display = 'block';
+  nextScene();
+});
+
+// Skip button
+document.getElementById('skipBtn').addEventListener('click', () => {
+  currentSceneIdx = scenes.length - 1;
+  fadeToScene(() => {
+    scene = 'ending';
+    sceneTime = 0;
+    hideText();
+    document.getElementById('skipBtn').style.display = 'none';
+  });
+});
+
+// Draw ending screen
+function drawEnding() {
+  drawBgPath();
+  drawPlli(W/2, 210, 'idle');
+
+  const t = Math.min(sceneTime / 60, 1);
+  X.globalAlpha = t;
+  X.textAlign = 'center';
+
+  X.font = '14px "Press Start 2P"';
+  X.fillStyle = '#f7a';
+  X.fillText('STARSHARD RUSH', W/2, 80);
+
+  X.font = '9px "Press Start 2P"';
+  X.fillStyle = '#6af';
+  X.fillText('The Adventure Begins...', W/2, 105);
+
+  X.font = '8px "Press Start 2P"';
+  const ba = 0.3 + 0.5 * Math.abs(Math.sin(frame * 0.04));
+  X.fillStyle = `rgba(200,220,255,${ba})`;
+  X.fillText('PRESS START', W/2, 280);
+
+  X.globalAlpha = 1;
+
+  if (frame % 6 === 0) {
+    spawnParticle(W/2 + (Math.random()-0.5)*100, 120, Math.random() > 0.5 ? '#f7a' : '#6af');
+  }
+}
+
+// Main loop
+function loop() {
+  frame++;
+  sceneTime++;
+
+  // Clear
+  X.fillStyle = '#000';
+  X.fillRect(0, 0, W, H);
+
+  if (scene === 'title') {
+    drawTitle();
+  } else if (scene === 'cutscene') {
+    const s = scenes[currentSceneIdx];
+    if (s) {
+      drawBackground(s.bg);
+      drawActors(s.actor);
+    }
+  } else if (scene === 'ending') {
+    drawEnding();
+  }
+
+  updateParticles();
+
+  // Scanline effect
+  X.fillStyle = 'rgba(0,0,0,0.08)';
+  for (let i = 0; i < H; i += 3) {
+    X.fillRect(0, i, W, 1);
+  }
+
+  // Fade transition
+  if (transDir === 1) {
+    transAlpha += 0.04;
+    if (transAlpha >= 1) {
+      transDir = -1;
+      if (transCallback) transCallback();
+      transCallback = null;
+    }
+  } else if (transDir === -1) {
+    transAlpha -= 0.04;
+    if (transAlpha <= 0) {
+      transAlpha = 0;
+      transDir = 0;
+    }
+  }
+  if (transAlpha > 0) {
+    X.fillStyle = `rgba(0,0,0,${transAlpha})`;
+    X.fillRect(0, 0, W, H);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
