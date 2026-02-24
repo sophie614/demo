@@ -105,58 +105,117 @@ function spawnParticle(x, y, col) {
 
 function drawPixelRect(x, y, w, h, col) { X.fillStyle = col; X.fillRect(Math.floor(x), Math.floor(y), w, h); }
 
-// Draw PLLI character (pixel art)
+// Draw PLLI character (pixel art, crochet doll style with headphones)
 function drawPlli(cx, cy, anim, facing) {
-  const f = facing || 1;
-  const s = 3; // pixel size
-  const bobY = anim === 'walk' || anim === 'run' ? Math.sin(frame * 0.15) * 2 : 0;
-  const armSwing = anim === 'walk' ? Math.sin(frame * 0.15) * 3 : anim === 'run' ? Math.sin(frame * 0.2) * 5 : 0;
-  const legSwing = anim === 'walk' ? Math.sin(frame * 0.15) * 2 : anim === 'run' ? Math.sin(frame * 0.2) * 4 : 0;
+  const s = 3;
+  const bobY = (anim === 'walk' || anim === 'run') ? Math.sin(frame * 0.15) * 2 : 0;
+  const swing = anim === 'walk' ? Math.sin(frame * 0.15) * 2 : anim === 'run' ? Math.sin(frame * 0.2) * 4 : 0;
   const y = cy + bobY;
 
-  // Hair (twintails)
-  drawPixelRect(cx - 5*s, y - 10*s, 10*s, 4*s, COL.hair);
-  drawPixelRect(cx - 6*s, y - 9*s, 2*s, 7*s, COL.hair); // left tail
-  drawPixelRect(cx + 4*s, y - 9*s, 2*s, 7*s, COL.hair); // right tail
-  drawPixelRect(cx - 6*s, y - 3*s, 2*s, 3*s, COL.hairDark);
-  drawPixelRect(cx + 4*s, y - 3*s, 2*s, 3*s, COL.hairDark);
-  // Bangs
-  drawPixelRect(cx - 4*s, y - 9*s, 8*s, 2*s, COL.hairDark);
+  const WHITE = '#f2f2f0';
+  const HAIR  = '#1c1c1c';
+  const BOW   = '#cc1111';
+  const BOW2  = '#ff4444';
+  const HPHN  = '#2e2e2e';
+  const HPHN2 = '#555555';
+  const GREEN = '#3d9e44';
+  const GRN2  = '#2c7a32';
+  const EYE   = '#1c1c1c';
 
-  // Face
-  drawPixelRect(cx - 3*s, y - 7*s, 6*s, 5*s, COL.skin);
-  // Eyes
-  drawPixelRect(cx - 2*s, y - 5*s, s, s, COL.eye);
-  drawPixelRect(cx + 1*s, y - 5*s, s, s, COL.eye);
-  // Eye shine
-  drawPixelRect(cx - 2*s, y - 5*s, 1, 1, '#fff');
-  drawPixelRect(cx + 1*s, y - 5*s, 1, 1, '#fff');
-  // Mouth
-  if (anim === 'run') {
-    drawPixelRect(cx - s*0.5, y - 3*s, s, s, '#e88');
-  } else {
-    drawPixelRect(cx - 0.5*s, y - 3.5*s, s, 1, '#d88');
-  }
+  // === LOWER BODY (2 round white blobs) ===
+  drawPixelRect(cx-6*s, y+3*s, 5*s, 5*s, WHITE);
+  drawPixelRect(cx-5*s, y+2*s, 3*s,  s,  WHITE);
+  drawPixelRect(cx-5*s, y+8*s, 3*s,  s,  WHITE);
+  drawPixelRect(cx+1*s, y+3*s, 5*s, 5*s, WHITE);
+  drawPixelRect(cx+2*s, y+2*s, 3*s,  s,  WHITE);
+  drawPixelRect(cx+2*s, y+8*s, 3*s,  s,  WHITE);
 
-  // Dress
-  drawPixelRect(cx - 3*s, y - 2*s, 6*s, 5*s, COL.dress);
-  drawPixelRect(cx - 4*s, y - 1*s, 8*s, 2*s, COL.dress);
-  drawPixelRect(cx - 2*s, y - 2*s, 4*s, 1*s, COL.dressDark);
-  // Star emblem on dress
-  drawPixelRect(cx - 0.5*s, y + 0*s, s, s, '#ff0');
+  // === GREEN BODY ===
+  drawPixelRect(cx-5*s, y-3*s, 10*s, 7*s, GREEN);
+  drawPixelRect(cx-4*s, y-4*s,  8*s,  s,  GREEN);
+  drawPixelRect(cx-4*s, y+3*s,  8*s,  s,  GRN2);
+  X.font = '5px monospace';
+  X.textAlign = 'center';
+  X.fillStyle = GRN2;
+  X.fillText('we are', cx, y);
+  X.fillText('the world', cx, y + 2*s + 1);
 
-  // Arms
-  X.save();
-  drawPixelRect(cx - 5*s, y - 1*s + armSwing, 2*s, 4*s, COL.skin);
-  drawPixelRect(cx + 3*s, y - 1*s - armSwing, 2*s, 4*s, COL.skin);
-  X.restore();
+  // === ARMS (big round white fists) ===
+  drawPixelRect(cx-9*s, y-2*s + swing, 5*s, 5*s, WHITE);
+  drawPixelRect(cx-8*s, y-3*s + swing, 3*s,  s,  WHITE);
+  drawPixelRect(cx-8*s, y+3*s + swing, 3*s,  s,  WHITE);
+  drawPixelRect(cx+4*s, y-2*s - swing, 5*s, 5*s, WHITE);
+  drawPixelRect(cx+5*s, y-3*s - swing, 3*s,  s,  WHITE);
+  drawPixelRect(cx+5*s, y+3*s - swing, 3*s,  s,  WHITE);
 
-  // Legs
-  drawPixelRect(cx - 2*s, y + 3*s + legSwing, 2*s, 3*s, COL.skin);
-  drawPixelRect(cx + 0*s, y + 3*s - legSwing, 2*s, 3*s, COL.skin);
-  // Boots
-  drawPixelRect(cx - 2*s, y + 5*s + legSwing, 2*s, 2*s, COL.boot);
-  drawPixelRect(cx + 0*s, y + 5*s - legSwing, 2*s, 2*s, COL.boot);
+  // === HEAD ===
+  drawPixelRect(cx-4*s, y-12*s,  8*s, 9*s, WHITE);
+  drawPixelRect(cx-5*s, y-11*s, 10*s, 7*s, WHITE);
+  drawPixelRect(cx-3*s, y-13*s,  6*s,  s,  WHITE);
+
+  // === WISPY HAIR strands (behind ears) ===
+  drawPixelRect(cx-5*s, y-14*s,  s, 2*s, HAIR);
+  drawPixelRect(cx-6*s, y-15*s,  s,  s,  HAIR);
+  drawPixelRect(cx-7*s, y-15*s,  s,  s,  HAIR);
+  drawPixelRect(cx+4*s, y-14*s,  s, 2*s, HAIR);
+  drawPixelRect(cx+5*s, y-15*s,  s,  s,  HAIR);
+  drawPixelRect(cx+6*s, y-15*s,  s,  s,  HAIR);
+
+  // === RED BOWS ===
+  drawPixelRect(cx-8*s, y-14*s, 3*s, 3*s, BOW);
+  drawPixelRect(cx-8*s, y-14*s,  s,   s,  BOW2);
+  drawPixelRect(cx-6*s, y-13*s,  s,   s,  BOW2);
+  drawPixelRect(cx-5*s, y-14*s, 3*s, 3*s, BOW);
+  drawPixelRect(cx-5*s, y-14*s,  s,   s,  BOW2);
+  drawPixelRect(cx+2*s, y-14*s, 3*s, 3*s, BOW);
+  drawPixelRect(cx+2*s, y-14*s,  s,   s,  BOW2);
+  drawPixelRect(cx+4*s, y-13*s,  s,   s,  BOW2);
+  drawPixelRect(cx+5*s, y-14*s, 3*s, 3*s, BOW);
+  drawPixelRect(cx+5*s, y-14*s,  s,   s,  BOW2);
+
+  // === HEADPHONES ear cups ===
+  drawPixelRect(cx-8*s, y-13*s, 3*s, 5*s, HPHN);
+  drawPixelRect(cx-7*s, y-14*s,  s,   s,  HPHN);
+  drawPixelRect(cx-7*s, y-8*s,   s,   s,  HPHN);
+  drawPixelRect(cx-7*s, y-12*s,  s,   s,  HPHN2);
+  drawPixelRect(cx+5*s, y-13*s, 3*s, 5*s, HPHN);
+  drawPixelRect(cx+6*s, y-14*s,  s,   s,  HPHN);
+  drawPixelRect(cx+6*s, y-8*s,   s,   s,  HPHN);
+  drawPixelRect(cx+6*s, y-12*s,  s,   s,  HPHN2);
+  // Headphone band over top
+  drawPixelRect(cx-5*s, y-16*s, 10*s, 2*s, HPHN);
+  drawPixelRect(cx-6*s, y-15*s,  2*s,  s,  HPHN);
+  drawPixelRect(cx+4*s, y-15*s,  2*s,  s,  HPHN);
+
+  // === HAIR TOP (center, drawn over band edge) ===
+  drawPixelRect(cx-3*s, y-13*s, 6*s, 2*s, HAIR);
+  drawPixelRect(cx-4*s, y-12*s, 2*s,  s,  HAIR);
+  drawPixelRect(cx+2*s, y-12*s, 2*s,  s,  HAIR);
+
+  // === FACE ===
+  // Eyebrows (angled, intense)
+  drawPixelRect(cx-4*s, y-10*s, 2*s, s, EYE);
+  drawPixelRect(cx-2*s, y-11*s,  s,  s, EYE);
+  drawPixelRect(cx+1*s, y-11*s,  s,  s, EYE);
+  drawPixelRect(cx+2*s, y-10*s, 2*s, s, EYE);
+  // Eyes (squinting lines)
+  drawPixelRect(cx-4*s, y-9*s, 3*s, s, EYE);
+  drawPixelRect(cx+1*s, y-9*s, 3*s, s, EYE);
+  drawPixelRect(cx-3*s, y-8*s,  s,  s, EYE);
+  drawPixelRect(cx+2*s, y-8*s,  s,  s, EYE);
+  // Large pink cheeks
+  X.fillStyle = 'rgba(255,110,130,0.6)';
+  X.beginPath(); X.arc(cx - 4*s, y - 7*s, s*2.2, 0, Math.PI*2); X.fill();
+  X.beginPath(); X.arc(cx + 4*s, y - 7*s, s*2.2, 0, Math.PI*2); X.fill();
+  // Nose dot
+  drawPixelRect(cx, y-8*s, s, s, EYE);
+  // Mouth (open O shape)
+  drawPixelRect(cx-2*s, y-6*s, 4*s,  s, EYE);
+  drawPixelRect(cx-2*s, y-4*s, 4*s,  s, EYE);
+  drawPixelRect(cx-2*s, y-5*s,  s,   s, EYE);
+  drawPixelRect(cx+1*s, y-5*s,  s,   s, EYE);
+  X.fillStyle = '#111';
+  X.fillRect(cx - s, y - 5*s, 2*s, s);
 }
 
 // Draw starshard crystal
@@ -398,7 +457,7 @@ function drawActors(name) {
     const za = 0.4 + 0.4 * Math.sin(frame * 0.05);
     X.font = '10px "Press Start 2P"';
     X.fillStyle = `rgba(200,200,255,${za})`;
-    X.fillText('z Z z', W/2 + 30, 180 - Math.sin(frame * 0.03) * 5);
+    X.fillText('z Z z', W/2 + 30, 145 - Math.sin(frame * 0.03) * 5);
   } else if (name === 'plli_stand') {
     drawPlli(W/2, 210, 'idle');
     // Name tag
@@ -407,10 +466,10 @@ function drawActors(name) {
     X.font = '12px "Press Start 2P"';
     X.textAlign = 'center';
     X.fillStyle = '#f7a';
-    X.fillText('P L L I', W/2, 155);
+    X.fillText('P L L I', W/2, 130);
     X.font = '7px "Press Start 2P"';
     X.fillStyle = '#aac';
-    X.fillText('— 스타샤드 모험가 —', W/2, 170);
+    X.fillText('— 스타샤드 모험가 —', W/2, 145);
     X.globalAlpha = 1;
     // Sparkles around
     if (frame % 8 === 0) spawnParticle(W/2 + (Math.random()-0.5)*60, 200, '#f7a');
